@@ -1,6 +1,6 @@
 import openai
 
-openai.api_key = "YOUR TOKEN HERE"
+openai.api_key = {get_config()['open_ai_token']}
 
 messages = [{"role": "assistant", "content":"You are a gamer girl that is trying to get a gamer boyfriend talk to me like you are trying to get me to date you through a good conversation."}]
 
