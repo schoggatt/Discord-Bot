@@ -119,6 +119,10 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
+# ignore the config
+/config.json
+config.json
+
 # Environments
 .env
 .venv
@@ -151,9 +155,6 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
-
-# ignore the config
-config.json
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
