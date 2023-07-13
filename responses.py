@@ -1,6 +1,8 @@
 import random
 import requests
 
+import gamer_girl_gpt
+
 
 def handle_response(message) -> str:
     p_message = message.lower()
@@ -16,6 +18,10 @@ def handle_response(message) -> str:
 
     if p_message.startswith('!waifu'):
         return get_waifu_payload(p_message)
+    
+    if p_message.startswith('!lonely'):
+        user_message = p_message.split('!lonely ')[1]
+        return gamer_girl_gpt.gamer_girl_gpt_response(user_message)
     
     if p_message == '!help':
         return "`This is a help message that you can modify.`"
@@ -45,8 +51,15 @@ def get_waifu_tags():
 
     if response.status_code == 200:
         data = response.json()
-        tags = data['tags']
-        return tags
+        tag_response = 'Here are the tags you can use...\n\n'
+        tag_response += '**Tags**: \n'
+        tag_response += '\t**NSFW**: \n'
+        for tag in data['nsfw']:
+            tag_response += f'\t\t-{tag}\n'
+        tag_response += '\t**SFW**: \n'
+        for tag in data['versatile']:
+            tag_response += f'\t\t-{tag}\n'
+        return tag_response
         # Process the response data as needed
     else:
         print('Request failed with status code:', response.status_code)
