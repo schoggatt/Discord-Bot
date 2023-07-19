@@ -1,4 +1,5 @@
 import discord
+from recommender.data import initialize_recommender
 import responses
 from config import get_discord_token
 
@@ -14,6 +15,8 @@ def run_discord_bot():
     intents = discord.Intents.default()
     intents.message_content = True
     client = discord.Client(intents=intents)
+
+    initialize_recommender()
 
     @client.event
     async def on_ready():
