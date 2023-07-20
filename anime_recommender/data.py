@@ -11,7 +11,6 @@ def fill_to_length(array, fill_value):
     return array
 
 def search_by_title(title):
-    # return df_columns.where(df_columns.Name == title).index()
     search_dataset = anime_dataset['Name'].str.lower()
     return search_dataset.index[search_dataset.str.contains(title.lower())].tolist()
 
@@ -44,8 +43,6 @@ def clean_and_create_dataframe():
     df_columns['Tags'] = df_columns['Tags'].apply(lambda tags: [str.lower(tag.replace(" ", "")) for tag in tags])
     df_columns['Tags'] = df_columns['Tags'].apply(lambda tags: tags[:5])
 
-    # df_columns['Name'] = df_columns['Name'].str.lower()
-
     df_columns[df_columns['Tags'].apply(lambda x: len(x)) > 0]
 
     tag_enconder = preprocessing.LabelEncoder()
@@ -62,9 +59,6 @@ def clean_and_create_dataframe():
 
     return df_columns
 
-# some issue with assignment causing the dataframe to not be updated
-# i need to remove the item that was searched for in the dataframe
-# issues with the scope of the dataframe that needs to be fixed
 def get_recommendations(title, dataset):
     search_item_index_list = search_by_title(title)
     if(len(search_item_index_list) > 0):
