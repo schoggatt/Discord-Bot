@@ -1,42 +1,38 @@
 import discord
-from recommender.data import initialize_recommender
-import responses
+from anime_recommender.data import handle_recommendation_request, initialize_recommender
+from gamer_girl_gpt import gamer_girl_gpt_response
+from waifu_api.waifu import get_waifu_payload
 from config import get_discord_token
+from discord.ext import commands
+from discord.ext.commands import Bot
 
-async def send_message(message, user_message, is_private):
+async def send_message(message, is_private):
     try:
-        response = responses.handle_response(user_message)
-        await message.author.send(response) if is_private else await message.channel.send(response)
+        await message.author.send(message) if is_private else await message.channel.send(message)
     except Exception as e:
         print(e)
 
 def run_discord_bot():
+    initialize_recommender()
     TOKEN = get_discord_token()
     intents = discord.Intents.default()
     intents.message_content = True
-    client = discord.Client(intents=intents)
-
-    initialize_recommender()
+    client = Bot(command_prefix='!', intents=intents)
 
     @client.event
     async def on_ready():
         print(f'{client.user} has connected to Discord!')
 
-    @client.event
-    async def on_message(message):
-        if message.author == client.user:
-            return
-        
-        username = str(message.author)
-        user_message = str(message.content)
-        channel = str(message.channel)
+    @client.command(name='recommend')
+    async def recommend(ctx,* , args):
+        await ctx.send(handle_recommendation_request(args))
 
-        print(f'{username} said: {user_message} ({channel})')
+    @client.command(name='waifu')
+    async def waifu(ctx, *args):
+        await ctx.send(get_waifu_payload(args))
 
-        if user_message.startswith('?'):
-            user_message = user_message[1:]
-            await send_message(message, user_message, is_private=True)
-        else:
-            await send_message(message, user_message, is_private=False)
+    @client.command(name='lonely')
+    async def lonely(ctx, *, args):
+        await ctx.send(gamer_girl_gpt_response(args))
 
     client.run(TOKEN)

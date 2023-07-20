@@ -35,10 +35,10 @@ def format_response(query_item, titles):
     return response
 
 def clean_and_create_dataframe():
-    df = pd.read_csv('recommender/dataset/anime.csv')
+    df = pd.read_csv('anime_recommender/dataset/anime.csv')
     df = df[:1000]
     df_columns = df[['Name', 'Type', 'Tags', 'Description', 'Rating']]
-    # df_columns[df_columns['Type'].apply(lambda t: t.strip() == 'TV')]
+    df_columns = df_columns.loc[df_columns['Type'] != 'TV']
 
     df_columns['Tags'] = df_columns['Tags'].str.split(',').fillna('')
     df_columns['Tags'] = df_columns['Tags'].apply(lambda tags: [str.lower(tag.replace(" ", "")) for tag in tags])
@@ -78,10 +78,14 @@ def get_recommendations(title, dataset):
         item2 = list(dataset.iloc[1]['Tags'])
         cosine_similarity = pw.cosine_similarity([item1], [item2])
         sorted_df = dataset.sort_values(by=['CosineSimilarity'], ascending=False).head(10).sort_values(by=['Rating'], ascending=False)
+        sorted_df = sorted_df.loc[sorted_df['Name'] != search_item_title]
         response = format_response(search_item_title, list(sorted_df.Name))
         return response
     else:
         return 'No Matching Anime Found In Database'
+
+def handle_recommendation_request(title):
+    return get_recommendations(title, anime_dataset)
 
 def initialize_recommender():
     try:
@@ -90,8 +94,5 @@ def initialize_recommender():
         print('Recommender Initialized')
     except:
         print('Error Initializing Recommender')
-
-def handle_recommendation_request(title):
-    return get_recommendations(title, anime_dataset)
 
 
