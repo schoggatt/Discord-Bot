@@ -3,8 +3,6 @@ import numpy as np
 from sklearn import preprocessing
 import sklearn.metrics.pairwise as pw
 
-#TODO: Need to make a feature that allows you to select the correct anime if multiple are returned
-
 def fill_to_length(array, fill_value):
     if len(array) < 5:
         array = np.pad(array, (0, 5 - len(array)), 'constant', constant_values=(fill_value))
@@ -20,9 +18,11 @@ def get_cosine_similarity(item1, item2):
     return pw.cosine_similarity([tags1], [tags2])
 
 def generate_dataframe_cosine_similarity(search_index):
-    for i in range(len(anime_dataset)):
-        similarity = get_cosine_similarity(anime_dataset.iloc[search_index], anime_dataset.iloc[i])[0]
-        anime_dataset.at[i, 'CosineSimilarity'] = similarity 
+    search_item = anime_dataset.loc[search_index]
+    for index, row in anime_dataset.iterrows():
+        iterative_item = anime_dataset.loc[index]
+        similarity = get_cosine_similarity(search_item, iterative_item)[0]
+        anime_dataset.at[index, 'CosineSimilarity'] = similarity 
     return anime_dataset
 
 def format_response(query_item, titles):
@@ -37,7 +37,8 @@ def clean_and_create_dataframe():
     df = pd.read_csv('anime_recommender/dataset/anime.csv')
     df = df[:1000]
     df_columns = df[['Name', 'Type', 'Tags', 'Description', 'Rating']]
-    df_columns = df_columns.loc[df_columns['Type'] != 'TV']
+    df_columns['Type'] = df_columns['Type'].str.strip()
+    df_columns = df_columns.loc[df_columns['Type'] == 'TV']
 
     df_columns['Tags'] = df_columns['Tags'].str.split(',').fillna('')
     df_columns['Tags'] = df_columns['Tags'].apply(lambda tags: [str.lower(tag.replace(" ", "")) for tag in tags])
@@ -46,9 +47,7 @@ def clean_and_create_dataframe():
     df_columns[df_columns['Tags'].apply(lambda x: len(x)) > 0]
 
     tag_enconder = preprocessing.LabelEncoder()
-    title_encoder = preprocessing.LabelEncoder()
 
-    titles = df_columns['Name'].unique()
     tags = df_columns['Tags'].apply(pd.Series).stack().unique()
 
     # Need to make a copy that is the encoded values for the model
@@ -59,27 +58,34 @@ def clean_and_create_dataframe():
 
     return df_columns
 
-def get_recommendations(title, dataset):
+def handle_search_query(title):
     search_item_index_list = search_by_title(title)
-    if(len(search_item_index_list) > 0):
-        search_item_index = search_item_index_list[0]
-        search_item_title = dataset.iloc[search_item_index].Name
+    query_result = anime_dataset.loc[search_item_index_list].sort_values(by=['Rating'], ascending=False).head(10)
+    query_result['SelectionIndex'] = np.arange(1, len(query_result) + 1)
+    print(query_result.head(10))
+    return query_result
+    
+def generate_query_response(list):
+    # itterows is apparently bad so should think about a different way
+    response = ''
+    for index, row in list.iterrows():
+        response += str(row['SelectionIndex']) + '. ' + row['Name'] + '\n'
+    return response
 
-        dataset['CosineSimilarity'] = 0
-        dataset = generate_dataframe_cosine_similarity(search_item_index)
+def get_recommendations(index, dataset):
+    search_item_title = dataset.loc[index].Name
 
-        item1 = list(dataset.iloc[0]['Tags'])
-        item2 = list(dataset.iloc[1]['Tags'])
-        cosine_similarity = pw.cosine_similarity([item1], [item2])
-        sorted_df = dataset.sort_values(by=['CosineSimilarity'], ascending=False).head(10).sort_values(by=['Rating'], ascending=False)
-        sorted_df = sorted_df.loc[sorted_df['Name'] != search_item_title]
-        response = format_response(search_item_title, list(sorted_df.Name))
-        return response
-    else:
-        return 'No Matching Anime Found In Database'
+    dataset['CosineSimilarity'] = 0
+    dataset = generate_dataframe_cosine_similarity(index)
+    dataset = dataset.loc[dataset['Name'] != search_item_title]
 
-def handle_recommendation_request(title):
-    return get_recommendations(title, anime_dataset)
+    sorted_df = dataset.sort_values(by=['CosineSimilarity'], ascending=False).head(10).sort_values(by=['Rating'], ascending=False)
+    titles = sorted_df['Name'].dropna()
+    response = format_response(search_item_title, titles)
+    return response
+
+def handle_recommendation_request(index):
+    return get_recommendations(index, anime_dataset)
 
 def initialize_recommender():
     try:
