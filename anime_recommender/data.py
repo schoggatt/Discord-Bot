@@ -35,7 +35,7 @@ def format_response(query_item, titles):
 
 def clean_and_create_dataframe():
     df = pd.read_csv('anime_recommender/dataset/anime.csv')
-    df = df[:1000]
+    # df = df[:1000] # No need to limit now
     df_columns = df[['Name', 'Type', 'Tags', 'Description', 'Rating']]
     df_columns['Type'] = df_columns['Type'].str.strip()
     df_columns = df_columns.loc[df_columns['Type'] == 'TV']
