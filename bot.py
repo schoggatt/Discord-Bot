@@ -1,12 +1,18 @@
 import asyncio
 import discord
-import numpy as np
 from anime_recommender.data import generate_query_response, handle_recommendation_request, handle_search_query, initialize_recommender
 from gamer_girl_gpt import gamer_girl_gpt_response
+from spotify.setup import get_spotify_token
 from waifu_api.waifu import get_waifu_payload
 from config import get_discord_token
 from discord.ext import commands
 from discord.ext.commands import Bot
+from discord import FFmpegPCMAudio
+from yt_dlp import YoutubeDL
+import discord.voice_client
+from discord.utils import get
+
+FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
 
 async def send_message(message, is_private):
     try:
@@ -16,6 +22,7 @@ async def send_message(message, is_private):
 
 def run_discord_bot():
     initialize_recommender()
+    get_spotify_token()
     TOKEN = get_discord_token()
     intents = discord.Intents.default()
     intents.message_content = True
@@ -54,5 +61,44 @@ def run_discord_bot():
     @client.command(name='lonely')
     async def lonely(ctx, *, args):
         await ctx.send(gamer_girl_gpt_response(args))
+
+    # TODO: This could be seperated into a different file that can handle different sources
+    # TODO: Add a queue system
+    @client.command(name='play')
+    async def play(ctx, *args):
+        url = args[0]
+        voice = discord.utils.get(client.voice_clients, guild=ctx.guild)
+        if voice is None:
+            voice_channel = ctx.author.voice.channel
+            if voice_channel is None:
+                await ctx.send("Join a voice channel first")
+                return
+            await voice_channel.connect()
+
+        ydl_opts = {'format': 'bestaudio'}
+        with YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            URL = info['formats'][3]['url']
+
+        voice = get(client.voice_clients, guild=ctx.guild)
+        if voice.is_playing():
+            voice.stop()
+        voice.play(FFmpegPCMAudio(URL, **FFMPEG_OPTIONS))
+
+    @client.command(name='pause')
+    async def pause(ctx):
+        voice = get(client.voice_clients, guild=ctx.guild)
+        if voice.is_playing():
+            voice.pause()
+        else:
+            await ctx.send("Currently no audio is playing.")
+
+    @client.command(name='resume')
+    async def resume(ctx):
+        voice = get(client.voice_clients, guild=ctx.guild)
+        if voice.is_paused():
+            voice.resume()
+        else:
+            await ctx.send("The audio is not paused.")
 
     client.run(TOKEN)
