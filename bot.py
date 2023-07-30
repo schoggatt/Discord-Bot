@@ -1,42 +1,58 @@
+import asyncio
 import discord
-from recommender.data import initialize_recommender
-import responses
+import numpy as np
+from anime_recommender.data import generate_query_response, handle_recommendation_request, handle_search_query, initialize_recommender
+from gamer_girl_gpt import gamer_girl_gpt_response
+from waifu_api.waifu import get_waifu_payload
 from config import get_discord_token
+from discord.ext import commands
+from discord.ext.commands import Bot
 
-async def send_message(message, user_message, is_private):
+async def send_message(message, is_private):
     try:
-        response = responses.handle_response(user_message)
-        await message.author.send(response) if is_private else await message.channel.send(response)
+        await message.author.send(message) if is_private else await message.channel.send(message)
     except Exception as e:
         print(e)
 
 def run_discord_bot():
+    initialize_recommender()
     TOKEN = get_discord_token()
     intents = discord.Intents.default()
     intents.message_content = True
-    client = discord.Client(intents=intents)
-
-    initialize_recommender()
+    client = Bot(command_prefix='!', intents=intents)
 
     @client.event
     async def on_ready():
         print(f'{client.user} has connected to Discord!')
 
-    @client.event
-    async def on_message(message):
-        if message.author == client.user:
-            return
-        
-        username = str(message.author)
-        user_message = str(message.content)
-        channel = str(message.channel)
-
-        print(f'{username} said: {user_message} ({channel})')
-
-        if user_message.startswith('?'):
-            user_message = user_message[1:]
-            await send_message(message, user_message, is_private=True)
+    @client.command(name='recommend')
+    async def recommend(ctx,* , args):
+        query_list = handle_search_query(args)
+        # We only want to send a message for selection if there is more than one result
+        if len(query_list) > 1:
+            try:
+                await ctx.send('Multiple search results for the title: ' + args + '. Please select the correct one by typing the number next to it.\n')
+                await ctx.send(generate_query_response(query_list))
+                msg = await client.wait_for("message", timeout=30)
+                selected_index = int(msg.content)
+                index = query_list.loc[query_list['SelectionIndex'] == selected_index].index.astype(int)[0]
+                await ctx.send(handle_recommendation_request(index))
+            except asyncio.TimeoutError:
+                await ctx.send("Sorry, you didn't reply in time!")
+        # If there is only one then we just use that one
+        elif len(query_list) == 1:
+            index = query_list.loc[query_list['SelectionIndex'] == 1].index.astype(int)[0]
+            await ctx.send(handle_recommendation_request(index))
+        # Otherwise just notify it isnt in the list
         else:
-            await send_message(message, user_message, is_private=False)
+            await ctx.send('No Matching Anime Found In Database')
+
+    @client.command(name='waifu')
+    async def waifu(ctx, *args):
+        await ctx.send(get_waifu_payload(args))
+
+    @client.command(name='lonely')
+    async def lonely(ctx, *, args):
+        await ctx.send(gamer_girl_gpt_response(args))
 
     client.run(TOKEN)
