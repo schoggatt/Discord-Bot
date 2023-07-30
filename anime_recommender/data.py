@@ -3,6 +3,10 @@ import numpy as np
 from sklearn import preprocessing
 import sklearn.metrics.pairwise as pw
 
+# TODO: I think that I could take the tags in their encoded form alone with the cosine similarity and use that as a feature for a neural net
+# I probably need to do some research and think more about how I could do this. I could do a classification model with a few different genres for 'classes'
+# but that would be pretty simple.
+
 def fill_to_length(array, fill_value):
     if len(array) < 5:
         array = np.pad(array, (0, 5 - len(array)), 'constant', constant_values=(fill_value))
@@ -13,8 +17,8 @@ def search_by_title(title):
     return search_dataset.index[search_dataset.str.contains(title.lower())].tolist()
 
 def get_cosine_similarity(item1, item2):
-    tags1 = fill_to_length(item1['Tags'], -1)
-    tags2 = fill_to_length(item2['Tags'], -1)
+    tags1 = fill_to_length(item1['Tags'], 0)
+    tags2 = fill_to_length(item2['Tags'], 0)
     return pw.cosine_similarity([tags1], [tags2])
 
 def generate_dataframe_cosine_similarity(search_index):
@@ -78,8 +82,14 @@ def get_recommendations(index, dataset):
     dataset['CosineSimilarity'] = 0
     dataset = generate_dataframe_cosine_similarity(index)
     dataset = dataset.loc[dataset['Name'] != search_item_title]
+    
+    # Very naive weighting formula to make sure similarity is valued more than the rating
+    dataset['WeightedSimilarity'] = dataset['CosineSimilarity'] * (dataset['Rating'] * .8)
 
-    sorted_df = dataset.sort_values(by=['CosineSimilarity'], ascending=False).head(10).sort_values(by=['Rating'], ascending=False)
+    # TODO: Write some nueral net application or some form of weighting to get better results
+    # sorted_df = dataset.sort_values(by=['CosineSimilarity'], ascending=False).head(10).sort_values(by=['Rating'], ascending=False)
+    sorted_df = dataset.sort_values(by=['WeightedSimilarity'], ascending=False).head(10)
+    print(sorted_df.head(10))
     titles = sorted_df['Name'].dropna()
     response = format_response(search_item_title, titles)
     return response
