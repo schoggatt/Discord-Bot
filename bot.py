@@ -14,11 +14,7 @@ from discord.utils import get
 
 FFMPEG_OPTIONS = {'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
 
-async def send_message(message, is_private):
-    try:
-        await message.author.send(message) if is_private else await message.channel.send(message)
-    except Exception as e:
-        print(e)
+song_queue = []
 
 def run_discord_bot():
     initialize_recommender()
@@ -78,12 +74,22 @@ def run_discord_bot():
         ydl_opts = {'format': 'bestaudio'}
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            URL = info['formats'][3]['url']
+            song_url = info['formats'][3]['url']
+
+        song_queue.append(song_url)
 
         voice = get(client.voice_clients, guild=ctx.guild)
-        if voice.is_playing():
-            voice.stop()
-        voice.play(FFmpegPCMAudio(URL, **FFMPEG_OPTIONS))
+        if not ctx.voice_client.is_playing():
+            queued_song_url = song_queue.pop(0)
+            voice.play(FFmpegPCMAudio(queued_song_url, **FFMPEG_OPTIONS), after= lambda x: play_next(ctx))
+        else:
+            await ctx.send("Added to queue...")
+
+    def play_next(ctx):
+        voice = get(client.voice_clients, guild=ctx.guild)
+        if len(song_queue) > 0:
+            voice.play(FFmpegPCMAudio(song_queue.pop(0), **FFMPEG_OPTIONS), after=lambda x: play_next(ctx))
+
 
     @client.command(name='pause')
     async def pause(ctx):
@@ -100,5 +106,14 @@ def run_discord_bot():
             voice.resume()
         else:
             await ctx.send("The audio is not paused.")
+
+    @client.command(name='disconnect')
+    async def disconnect(ctx):
+        song_queue.clear()
+        voice = get(client.voice_clients, guild=ctx.guild)
+        if voice.is_connected():
+            await voice.disconnect()
+        else:
+            await ctx.send("The bot is not connected to a voice channel.")
 
     client.run(TOKEN)
